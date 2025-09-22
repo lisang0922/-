@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>员工休息日历</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#F59E0B',
+                        neutral: '#6B7280',
+                        rest: '#EF4444'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .calendar-day {
+                @apply aspect-square flex flex-col justify-start p-1 border border-gray-200 transition-all duration-200;
+            }
+            .calendar-day-has-rest {
+                @apply bg-red-50 border-red-200;
+            }
+            .calendar-day-today {
+                @apply border-primary bg-blue-50;
+            }
+            .rest-item {
+                @apply text-xs bg-rest/10 text-rest p-1 rounded mb-1 truncate;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-primary">员工休息日历</h1>
+            <button id="shareBtn" class="flex items-center text-neutral hover:text-primary transition-colors">
+                <i class="fa fa-share-alt mr-1"></i>
+                <span class="text-sm">分享</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-4">
+        <!-- 月份导航 -->
+        <div class="flex justify-between items-center mb-4 bg-white p-3 rounded-lg shadow-sm">
+            <button id="prevMonth" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <i class="fa fa-chevron-left text-neutral"></i>
+            </button>
+            <h2 id="currentMonth" class="text-lg font-semibold"></h2>
+            <button id="nextMonth" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <i class="fa fa-chevron-right text-neutral"></i>
+            </button>
+        </div>
+        
+        <!-- 星期标题 -->
+        <div class="grid grid-cols-7 gap-1 mb-1">
+            <div class="text-center text-xs font-medium text-neutral py-2">日</div>
+            <div class="text-center text-xs font-medium text-neutral py-2">一</div>
+            <div class="text-center text-xs font-medium text-neutral py-2">二</div>
+            <div class="text-center text-xs font-medium text-neutral py-2">三</div>
+            <div class="text-center text-xs font-medium text-neutral py-2">四</div>
+            <div class="text-center text-xs font-medium text-neutral py-2">五</div>
+            <div class="text-center text-xs font-medium text-neutral py-2">六</div>
+        </div>
+        
+        <!-- 日历网格 -->
+        <div id="calendarGrid" class="grid grid-cols-7 gap-1 mb-6"></div>
+        
+        <!-- 添加休息记录的表单 -->
+        <div id="addRestForm" class="bg-white p-4 rounded-lg shadow-sm mb-6 hidden">
+            <h3 class="text-lg font-semibold mb-3">添加休息记录</h3>
+            <input type="hidden" id="selectedDate">
+            
+            <div class="mb-3">
+                <label for="employeeName" class="block text-sm font-medium text-gray-700 mb-1">员工姓名</label>
+                <input type="text" id="employeeName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary" placeholder="请输入姓名">
+            </div>
+            
+            <div class="mb-4">
+                <label for="restReason" class="block text-sm font-medium text-gray-700 mb-1">休息原因</label>
+                <select id="restReason" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                    <option value="事假">事假</option>
+                    <option value="病假">病假</option>
+                    <option value="年假">年假</option>
+                    <option value="调休">调休</option>
+                    <option value="其他">其他</option>
+                </select>
+            </div>
+            
+            <div class="flex justify-end space-x-2">
+                <button id="cancelAdd" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">取消</button>
+                <button id="confirmAdd" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors">确认添加</button>
+            </div>
+        </div>
+        
+        <!-- 提示信息 -->
+        <div class="bg-blue-50 border-l-4 border-primary p-3 rounded mb-6 text-sm">
+            <p class="flex items-start">
+                <i class="fa fa-info-circle text-primary mt-0.5 mr-2"></i>
+                <span>点击日期可以添加休息记录，数据保存在本地。分享链接给同事，可共同查看（同一设备）。</span>
+            </p>
+        </div>
+    </main>
+
+    <!-- 底部版权信息 -->
+    <footer class="bg-white py-3 mt-auto">
+        <div class="container mx-auto px-4 text-center text-xs text-neutral">
+            <p>员工休息日历 &copy; 2023</p>
+        </div>
+    </footer>
+
+    <!-- 成功提示弹窗 -->
+    <div id="successToast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-secondary text-white px-4 py-2 rounded-md shadow-lg opacity-0 transition-opacity duration-300 flex items-center">
+        <i class="fa fa-check-circle mr-2"></i>
+        <span>添加成功！</span>
+    </div>
+
+    <script>
+        // 数据存储
+        const RestData = {
+            // 初始化数据
+            init() {
+                if (!localStorage.getItem('restRecords')) {
+                    localStorage.setItem('restRecords', JSON.stringify({}));
+                }
+            },
+            
+            // 获取指定日期的休息记录
+            getRecords(date) {
+                const records = JSON.parse(localStorage.getItem('restRecords') || '{}');
+                return records[date] || [];
+            },
+            
+            // 添加休息记录
+            addRecord(date, record) {
+                const records = JSON.parse(localStorage.getItem('restRecords') || '{}');
+                if (!records[date]) {
+                    records[date] = [];
+                }
+                records[date].push({
+                    id: Date.now(),
+                    ...record
+                });
+                localStorage.setItem('restRecords', JSON.stringify(records));
+                return true;
+            },
+            
+            // 删除休息记录
+            deleteRecord(date, id) {
+                const records = JSON.parse(localStorage.getItem('restRecords') || '{}');
+                if (records[date]) {
+                    records[date] = records[date].filter(item => item.id !== id);
+                    if (records[date].length === 0) {
+                        delete records[date];
+                    }
+                    localStorage.setItem('restRecords', JSON.stringify(records));
+                    return true;
+                }
+                return false;
+            }
+        };
+
+        // 日历核心功能
+        class RestCalendar {
+            constructor() {
+                this.today = new Date();
+                this.currentDate = new Date(this.today.getFullYear(), this.today.getMonth(), 1);
+                this.initElements();
+                this.bindEvents();
+                RestData.init();
+                this.renderCalendar();
+            }
+            
+            // 初始化DOM元素
+            initElements() {
+                this.calendarGrid = document.getElementById('calendarGrid');
+                this.currentMonthEl = document.getElementById('currentMonth');
+                this.prevMonthBtn = document.getElementById('prevMonth');
+                this.nextMonthBtn = document.getElementById('nextMonth');
+                this.addRestForm = document.getElementById('addRestForm');
+                this.selectedDateInput = document.getElementById('selectedDate');
+                this.employeeNameInput = document.getElementById('employeeName');
+                this.restReasonSelect = document.getElementById('restReason');
+                this.confirmAddBtn = document.getElementById('confirmAdd');
+                this.cancelAddBtn = document.getElementById('cancelAdd');
+                this.successToast = document.getElementById('successToast');
+                this.shareBtn = document.getElementById('shareBtn');
+            }
+            
+            // 绑定事件
+            bindEvents() {
+                this.prevMonthBtn.addEventListener('click', () => this.changeMonth(-1));
+                this.nextMonthBtn.addEventListener('click', () => this.changeMonth(1));
+                this.confirmAddBtn.addEventListener('click', () => this.handleAddRest());
+                this.cancelAddBtn.addEventListener('click', () => this.hideAddForm());
+                this.shareBtn.addEventListener('click', () => this.showShareTips());
+            }
+            
+            // 切换月份
+            changeMonth(step) {
+                this.currentDate.setMonth(this.currentDate.getMonth() + step);
+                this.renderCalendar();
+            }
+            
+            // 渲染日历
+            renderCalendar() {
+                // 更新月份标题
+                const year = this.currentDate.getFullYear();
+                const month = this.currentDate.getMonth();
+                const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+                this.currentMonthEl.textContent = `${year}年 ${monthNames[month]}`;
+                
+                // 清空日历网格
+                this.calendarGrid.innerHTML = '';
+                
+                // 获取当月第一天是星期几 (0-6, 0是星期日)
+                const firstDay = new Date(year, month, 1).getDay();
+                
+                // 获取当月的天数
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                
+                // 添加上月的占位天数
+                for (let i = 0; i < firstDay; i++) {
+                    const emptyDay = document.createElement('div');
+                    emptyDay.className = 'calendar-day bg-gray-50 opacity-50';
+                    this.calendarGrid.appendChild(emptyDay);
+                }
+                
+                // 添加当月的天数
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isToday = day === this.today.getDate() && 
+                                   month === this.today.getMonth() && 
+                                   year === this.today.getFullYear();
+                    
+                    const dayEl = document.createElement('div');
+                    dayEl.className = `calendar-day ${isToday ? 'calendar-day-today' : ''}`;
+                    
+                    // 日期数字
+                    const dayNumber = document.createElement('div');
+                    dayNumber.className = `text-sm font-medium ${isToday ? 'text-primary' : 'text-neutral'}`;
+                    dayNumber.textContent = day;
+                    dayEl.appendChild(dayNumber);
+                    
+                    // 休息记录列表
+                    const restList = document.createElement('div');
+                    restList.className = 'mt-1 flex-1 overflow-y-auto';
+                    
+                    // 获取该日期的休息记录
+                    const records = RestData.getRecords(dateStr);
+                    
+                    // 添加休息记录
+                    records.forEach(record => {
+                        const restItem = document.createElement('div');
+                        restItem.className = 'rest-item flex justify-between items-center';
+                        restItem.innerHTML = `
+                            <span>${record.name}</span>
+                            <span class="text-[10px]">${record.reason}</span>
+                            <button class="delete-rest text-rest/70 hover:text-rest" data-date="${dateStr}" data-id="${record.id}">
+                                <i class="fa fa-times-circle"></i>
+                            </button>
+                        `;
+                        restList.appendChild(restItem);
+                        
+                        // 添加删除事件
+                        restItem.querySelector('.delete-rest').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const date = e.target.closest('.delete-rest').dataset.date;
+                            const id = parseInt(e.target.closest('.delete-rest').dataset.id);
+                            if (confirm('确定要删除这条记录吗？')) {
+                                RestData.deleteRecord(date, id);
+                                this.renderCalendar();
+                            }
+                        });
+                    });
+                    
+                    dayEl.appendChild(restList);
+                    
+                    // 如果有休息记录，添加特殊样式
+                    if (records.length > 0) {
+                        dayEl.classList.add('calendar-day-has-rest');
+                    }
+                    
+                    // 添加点击事件，显示添加休息记录的表单
+                    dayEl.addEventListener('click', () => {
+                        this.showAddForm(dateStr);
+                    });
+                    
+                    this.calendarGrid.appendChild(dayEl);
+                }
+            }
+            
+            // 显示添加休息记录的表单
+            showAddForm(date) {
+                this.selectedDateInput.value = date;
+                this.employeeNameInput.value = '';
+                this.restReasonSelect.value = '事假';
+                this.addRestForm.classList.remove('hidden');
+                this.employeeNameInput.focus();
+                
+                // 滚动到表单位置
+                this.addRestForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            // 隐藏添加休息记录的表单
+            hideAddForm() {
+                this.addRestForm.classList.add('hidden');
+            }
+            
+            // 处理添加休息记录
+            handleAddRest() {
+                const date = this.selectedDateInput.value;
+                const name = this.employeeNameInput.value.trim();
+                const reason = this.restReasonSelect.value;
+                
+                if (!name) {
+                    alert('请输入员工姓名');
+                    return;
+                }
+                
+                // 添加记录
+                RestData.addRecord(date, { name, reason });
+                
+                // 隐藏表单
+                this.hideAddForm();
+                
+                // 重新渲染日历
+                this.renderCalendar();
+                
+                // 显示成功提示
+                this.showSuccessToast();
+            }
+            
+            // 显示成功提示
+            showSuccessToast() {
+                this.successToast.style.opacity = '1';
+                setTimeout(() => {
+                    this.successToast.style.opacity = '0';
+                }, 2000);
+            }
+            
+            // 显示分享提示
+            showShareTips() {
+                if (typeof WeixinJSBridge !== 'undefined') {
+                    // 如果在微信中，可以提示使用微信的分享功能
+                    alert('请使用微信的分享功能，将此页面分享到工作群');
+                } else {
+                    alert('请复制当前链接，分享到工作群中');
+                }
+            }
+        }
+
+        // 初始化日历应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new RestCalendar();
+        });
+    </script>
+</body>
+</html>
